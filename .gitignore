@@ -60,6 +60,9 @@ instance/
 # Scrapy stuff:
 .scrapy
 
+# credentials
+beau_cred.py
+
 # Sphinx documentation
 docs/_build/
 
