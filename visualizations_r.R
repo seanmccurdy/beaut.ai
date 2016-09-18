@@ -1,3 +1,12 @@
+library(ggthemes)
+library(ggplot2)
+library(reshape2)
+
+data<-read.csv("model_data/performance.csv")
+mm<-melt(data,id=c("time_stamp","random_samples"))
+ggplot(mm %>% filter(variable !='random'),aes(x=random_samples,y=value,color=variable))+geom_point(fill="white")+geom_line()+theme_bw()+xlab("Randomly Selected Samples")+ylab("Mean Absolute Error (%)")+labs(col="")+ylim(0,100)
+
+
 png("all.png",width=11,height=6.2,units="in",res=300)
 treemap(f_data,
             index=c("primary_category", "secondary_category","name"),
@@ -5,9 +14,10 @@ treemap(f_data,
             type="value",range=c(0,500))
 dev.off()
 
-data<-read.csv("learning_curve.csv",row.names=1)
+data<-read.csv("model_data/performance.csv")
 mm<-melt(data,id=c("time_stamp","random_samples"))
-ggplot(mm %>% filter(variable !='random'),aes(x=random_samples,y=value,color=variable))+geom_point(fill="white")+geom_line()+theme_bw()+xlab("Randomly Selected Samples")+ylab("Mean Absolute Error (%)")+labs(col="")+ylim(0,100)
+ggplot(mm %>% filter(variable !='random'),aes(x=random_samples,y=value,color=variable,group=variable))+geom_point(fill="white")+geom_smooth()+theme_bw()+xlab("Randomly Selected Samples")+ylab("Mean Absolute Error (%)")+labs(col="")+ylim(0,60)
+ggplot(data %>% mutate(performance_vs_chance = random/test),aes(x=random_samples,y= performance_vs_chance))+geom_point(fill="white")+geom_smooth(se=F)+theme_bw()+xlab("Randomly Selected Samples")+ylab("Model performance vs random\n sampling (fold change)")+labs(col="")
 
 
 pred<-read.csv("check5.csv",row.names=1)

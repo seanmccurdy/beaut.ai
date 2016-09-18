@@ -1,7 +1,4 @@
 
-# import subprocess
-
-
 import subprocess
 import os
 import pandas as pd
@@ -13,6 +10,8 @@ from sklearn.cross_validation import cross_val_score,KFold,train_test_split
 from sklearn.pipeline import Pipeline
 from beau_cred import *
 from beau_functions import *
+
+#activates tensorflow backend for convnets
 subprocess.call('KERAS_BACKEND=tensorflow python -c "from keras import backend; print (backend._BACKEND)"', shell=True)
 
 os.chdir("/Users/seanmccurdy/Dropbox/insight_project/code")
