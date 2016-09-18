@@ -50,14 +50,6 @@ def convert_images_to_nparray(directory,img_rows,img_cols,channels=3):
 	    images = np.concatenate((images,[img]),axis=0)
 	    i+=1
 	    print (round(i/len(filelist)*100,2),"%",f,"completed")
-	target = []
-	for l in labels:
-	    try:
-	        result = int(data.loc[int(l)])
-	    except:
-	        result = 0
-	    finally:
-	        target.extend([result])
 	print(completed)
 	return (labels,images)
 	print(images.shape)
@@ -65,15 +57,16 @@ def convert_images_to_nparray(directory,img_rows,img_cols,channels=3):
 
 # mines target from SQL product_info table
 
-def collect_target(sql_user=sql_user,sql_pw=sql_pw,sql_host=sql_host,sql_db=sql_db,target="price_per_liter_in_cents"):
+def collect_target(sql_user=sql_user,sql_pw=sql_pw,sql_host=sql_host,sql_db=sql_db,target="price_per_liter_in_cents",directory="../thumbnails"):
 	engine = create_engine('postgresql://%s:%s@%s/%s' % (sql_user,sql_pw,sql_host,sql_db))
 	data = pd.read_sql("SELECT DISTINCT product_no,%s FROM product_info" %target,con=engine)
 	data.set_index("product_no",inplace=True)
 	data = data.dropna()
 	target = []
+	labels = [str.split(f,sep=".")[0] for f in list(filter((".DS_Store").__ne__, os.listdir("../thumbnails/")))]
 	for l in labels:
 	    try:
-	        result = int(data.loc[int(l)])
+	        result = data.loc[int(l)][0]
 	    except:
 	        result = 0
 	    finally:
@@ -81,19 +74,24 @@ def collect_target(sql_user=sql_user,sql_pw=sql_pw,sql_host=sql_host,sql_db=sql_
 	        print(l,result)
 	return target
 
-def load_processed_data(X_filename,Y_filename,labels_filename,randomize=True):
+def load_processed_data(target,	X_filename,Y_filename,labels_filename,randomize=True):
 	X = np.load(X_filename)
 	Y = np.load(Y_filename)
 	L = np.load(labels_filename)
 	X = np.rollaxis(np.rollaxis(X,3),1) #converts axis to (n,channel,row,height)
 	### remove null values that don't have an image
-	
-	L = L[Y!=0]
-	X = X[Y!=0]
-	Y = Y[Y!=0]*0.76/100 ### corrects for USD and cents
+	if target == "price":
+		L = L[Y!=0]
+		X = X[Y!=0]
+		Y = Y[Y!=0]*0.76/100 ### corrects for USD and cents
+	if target == "prime_cat":
+		L = L[(Y!='0') & (Y!='Non-Alc') & (Y!='Accessories and Non-Alcohol Items')]
+		X = X[(Y!='0') & (Y!='Non-Alc') & (Y!='Accessories and Non-Alcohol Items')]
+		Y = Y[(Y!='0') & (Y!='Non-Alc') & (Y!='Accessories and Non-Alcohol Items')]
+		Y = np_utils.to_categorical(Series(Y).factorize()[0],len(np.unique(Y)))
 	###randomization
-	smp = np.random.randint(low=0,high=Y.shape[0],size=Y.shape[0]).tolist()
 	if randomize == True:
+		smp = np.random.randint(low=0,high=len(Y),size=len(Y)).tolist()
 		L = L[smp]
 		X = X[smp]
 		Y = Y[smp]
@@ -109,14 +107,34 @@ def reg_deep_net_model_1(image_shape,loss="mse",optimizer="adam"):
 	model.add(Dense(100))
 	model.add(Activation('relu'))
 	model.add(Dense(1))
-	model.compile(loss=loss, optimizer='adam')
+	model.compile(loss=loss, optimizer=optimizer)
+	return model
+
+def class_deep_net_model_1(image_shape,loss="categorical_crossentropy",optimizer="adadelta"):	
+	model = Sequential()
+	model.add(Convolution2D(6,5,5,input_shape=(channels,img_rows,img_cols),border_mode="same"))
+	model.add(Activation('relu'))
+	model.add(MaxPooling2D(pool_size=(2,2)))
+	model.add(Convolution2D(16,5,5,border_mode="same"))
+	model.add(Activation('relu'))
+	model.add(MaxPooling2D(pool_size=(2,2)))
+	model.add(Convolution2D(120,5,5))
+	model.add(Activation('relu'))
+	model.add(Dropout(0.25))
+	model.add(Flatten())
+	model.add(Dense(84))
+	model.add(Activation('relu'))
+	model.add(Dropout(0.5))
+	model.add(Dense(5))
+	model.add(Activation('softmax'))
+	model.compile(loss=loss,optimizer=optimizer,metrics=["accuracy"])
 	return model
 
 def mae_percentage(y_pred,y_true):
     diff = abs((y_true - y_pred) / y_true)
     return 100 * diff.mean()
 
-def learning_curve(model,x_train,y_train,x_test,y_test,learn_sets,save_directory="../model_data"):
+def learning_curve(target,model,x_train,y_train,x_test,y_test,learn_sets,save_directory="../model_data"):
 	rand_perf = []
 	train_perf = []
 	test_perf = []
@@ -130,13 +148,18 @@ def learning_curve(model,x_train,y_train,x_test,y_test,learn_sets,save_directory
 	    			validation_data = (x_test,y_test))
 	    train_perf.append(model.evaluate(x_train[smp],y_train[smp]))
 	    test_perf.append(model.evaluate(x_test,y_test))
-	    rand_perf.append(mae_percentage(bootstrap_resample(y_train),y_train))
+	    if target=="price":
+	    	rand_perf.append(mae_percentage(bootstrap_resample(y_train),y_train))
+	    else:
+	    	rand_perf.append([0])
 	    learning_curve_performance = DataFrame([rand_perf,train_perf,test_perf,learn_sets],index=["random","train","test","random_samples"]).T
 	    print(learning_curve_performance)
-	    print(mae_percentage(model.predict(x_train),y_train))
 	time_stamp = timenow()
 	learning_curve_performance.insert(0,"time_stamp",timenow())
-	model.save(save_directory+'beautai_algorithm_reg_expanded_ver_%s.h5' % time_stamp)
+	if target == "price":
+		model.save(save_directory+'beautai_algorithm_reg_expanded_ver_%s.h5' % time_stamp)
+	else:
+		model.save(save_directory+'beautai_algorithm_class_expanded_ver_%s.h5' % time_stamp)
 	return (model,learning_curve_performance)
 
 def timenow(tz="America/Los_Angeles"):

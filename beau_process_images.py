@@ -21,9 +21,10 @@ labels,images = convert_images_to_nparray(	directory = "../thumbnails",
 											channels = 3)
 
 target = collect_target(target="price_per_liter_in_cents")
-
+categories = collect_target(target="primary_category")
 
 ### save numpy arrays for future usage
 np.save("../processed_data/images_RGB_%d_%d_expanded.npy" % (img_rows,img_cols),images)
 np.save("../processed_data/target_expanded.npy",target)
 np.save("../processed_data/labels_expanded.npy",labels)
+np.save("../processed_data/prime_categories_expanded.npy",categories)

@@ -3,6 +3,7 @@ import subprocess
 import os
 import pandas as pd
 import numpy as np
+import sys
 import matplotlib.pyplot as plt
 from pandas import DataFrame,Series
 from sqlalchemy import create_engine
@@ -26,12 +27,15 @@ seed = 42
 ######################
 
 X, Y, L = load_processed_data(	X_filename = "../processed_data/images_RGB_121_91_expanded.npy",
-								Y_filename= "../processed_data/target_expanded.npy",
+								Y_filename= "../processed_data/prime_categories_expanded.npy",
 								labels_filename = "../processed_data/labels_expanded.npy",
 								randomize = False,
-								target = "price")
+								target="prime_cat")
+# print("imported")
+# sys.exit()
 
-###create train/test/valid splits
+
+#create train/test/valid splits
 x_train, x_test, y_train, y_test = train_test_split(	X,
 														Y,
 														test_size=0.4,
@@ -52,19 +56,20 @@ print("xtrain shape:",x_train.shape,"ytrain shape:",y_train.shape);print("xtest 
 
 learn_sets = [100,250,500,750,1000,1500,2000,4000,y_train.shape[0]]
 
-regression_model = reg_deep_net_model_1(image_shape=(channels,img_rows,img_cols),
-										loss="mean_absolute_percentage_error")
+class_model = class_deep_net_model_1(	image_shape=(channels,img_rows,img_cols),
+										loss="categorical_crossentropy")
 
-trained_model, performance = learning_curve(model = regression_model,
+trained_model, performance = learning_curve(model = class_model,
 											x_train = x_train,
 											y_train = y_train,
 											x_test = x_test,
 											y_test = y_test,
 											learn_sets = learn_sets,
-											save_directory = "../model_data/")
+											save_directory = "../model_data/",
+											target="prime_cat")
 
 updateCSV(	data_to_update = performance,
-			filename = "../model_data/price_performance.csv")
+			filename = "../model_data/classification_performance.csv")
 
 
 

@@ -25,8 +25,13 @@ i <-createDataPartition(f_final[,"price_per_liter_in_usd"],p=0.6,list=F)
 train <- f_final[i,]
 test <- f_final[-i,]
 
+colnames(train)<-make.names(colnames(train))
+colnames(test)<-make.names(colnames(test))
 ctrl<-trainControl(method="adaptive_cv",repeats=5,number=10,savePredictions=T,index=createResample(train[,"price_per_liter_in_usd"], 50),verbose=T,allowParallel=F,adaptive = list(min = 5,alpha = 0.05,method = "gls",complete = TRUE))
-model<-train(price_per_liter_in_usd ~.,data=as.data.frame(train),method="ctree",preProcess=c("range"),trControl=ctrl)
+model<-train(price_per_liter_in_usd ~.,data=as.data.frame(train),method="cubist",preProcess=c("range"),trControl=ctrl)
+
+mean(abs((predict(model,train)-train$price_per_liter_in_usd)/train$price_per_liter_in_usd))*100
+mean(abs((predict(model,test)-test$price_per_liter_in_usd)/test$price_per_liter_in_usd))*100
 
 data<-read.csv("model_data/performance.csv")
 mm<-melt(data,id=c("time_stamp","random_samples"))
