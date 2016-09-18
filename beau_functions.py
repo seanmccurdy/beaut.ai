@@ -18,6 +18,8 @@ from keras.layers.convolutional import Convolution2D,MaxPooling2D
 from keras.layers import Convolution2D, ZeroPadding2D, MaxPooling2D
 from keras.utils import np_utils
 
+####AWESOME VERSION####
+
 img_rows = 121
 img_cols = 91
 channels = 3
