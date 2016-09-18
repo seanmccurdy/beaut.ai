@@ -61,7 +61,7 @@ trained_model, performance = learning_curve(model = regression_model,
 											x_test = x_test,
 											y_test = y_test,
 											learn_sets = learn_sets,
-											save_directory = "../model_data")
+											save_directory = "../model_data/")
 
 updateCSV(	data_to_update = performance,
 			filename = "../model_data/performance.csv")

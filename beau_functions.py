@@ -4,6 +4,8 @@ import pandas as pd
 import os
 import pandas as pd
 import numpy as np
+import datetime
+import pytz
 import matplotlib.pyplot as plt
 from keras import backend as K
 from pandas import DataFrame,Series
@@ -131,12 +133,13 @@ def learning_curve(model,x_train,y_train,x_test,y_test,learn_sets,save_directory
 	    rand_perf.append(mae_percentage(bootstrap_resample(y_train),y_train))
 	    learning_curve_performance = DataFrame([rand_perf,train_perf,test_perf,learn_sets],index=["random","train","test","random_samples"]).T
 	    print(learning_curve_performance)
+	    print(mae_percentage(model.predict(x_train),y_train))
 	time_stamp = timenow()
 	learning_curve_performance.insert(0,"time_stamp",timenow())
-	model.save(save_directory+'beautai_algorithm_class_expanded_ver_%s.h5' % time_stamp)
+	model.save(save_directory+'beautai_algorithm_reg_expanded_ver_%s.h5' % time_stamp)
 	return (model,learning_curve_performance)
 
-def timenow(tz="PST"):
+def timenow(tz="America/Los_Angeles"):
     """get current time"""
     return datetime.datetime.now().replace(tzinfo=pytz.timezone(tz))
 
