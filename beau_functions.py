@@ -1,5 +1,4 @@
-from scipy.misc import imread,imresize
-from beau_cred import *
+
 import pandas as pd
 import os
 import pandas as pd
@@ -7,17 +6,16 @@ import numpy as np
 import datetime
 import pytz
 import matplotlib.pyplot as plt
+from scipy.misc import imread,imresize
+from beau_cred import *
 from keras import backend as K
 from pandas import DataFrame,Series
 from sqlalchemy import create_engine
-from keras.wrappers.scikit_learn import KerasRegressor
 from sklearn.cross_validation import cross_val_score,KFold,train_test_split
-from sklearn.pipeline import Pipeline
-from keras.datasets import mnist
+from sklearn.metrics import accuracy_score
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation,Flatten
 from keras.layers.convolutional import Convolution2D,MaxPooling2D
-from keras.layers import Convolution2D, ZeroPadding2D, MaxPooling2D
 from keras.utils import np_utils
 
 img_rows = 121
@@ -89,7 +87,7 @@ def load_processed_data(target,	X_filename,Y_filename,labels_filename,randomize=
 		L = L[(Y!='0') & (Y!='Non-Alc') & (Y!='Accessories and Non-Alcohol Items')]
 		X = X[(Y!='0') & (Y!='Non-Alc') & (Y!='Accessories and Non-Alcohol Items')]
 		Y = Y[(Y!='0') & (Y!='Non-Alc') & (Y!='Accessories and Non-Alcohol Items')]
-		Y = Series(Y).factorize()[0]
+		Y = Series(Y).factorize()
 		# Y = np_utils.to_categorical(Series(Y).factorize()[0],len(np.unique(Y)))
 	###randomization
 	if randomize == True:
@@ -114,7 +112,7 @@ def reg_deep_net_model_1(image_shape=image_shape,loss="mean_absolute_percentage_
 
 def class_deep_net_model_1(image_shape=image_shape,loss="categorical_crossentropy",optimizer="adadelta"):	
 	model = Sequential()
-	model.add(Convolution2D(6,5,5,input_shape=(channels,img_rows,img_cols),border_mode="same"))
+	model.add(Convolution2D(8,3,3,input_shape=(channels,img_rows,img_cols),border_mode="same"))
 	model.add(Activation('relu'))
 	model.add(MaxPooling2D(pool_size=(2,2)))
 	model.add(Convolution2D(16,5,5,border_mode="same"))
@@ -136,7 +134,7 @@ def mae_percentage(y_pred,y_true):
     diff = abs((y_true - y_pred) / y_true)
     return 100 * diff.mean()
 
-def learning_curve(target,x_train,y_train,x_test,y_test,learn_sets,save_directory="../model_data"):
+def learning_curve(target,x_train,y_train,x_test,y_test,learn_sets,comments,hot_one_keys,save_directory="../model_data"):
 	rand_perf = []
 	train_loss = []
 	train_perf = []
@@ -156,17 +154,18 @@ def learning_curve(target,x_train,y_train,x_test,y_test,learn_sets,save_director
 	    			batch_size=100,
 	    			verbose=1,
 	    			validation_data = (x_test,y_test))
-	    
 	    if target=="price":
 	    	train_perf.append(model.evaluate(x_train[smp],y_train[smp]))
 	    	test_perf.append(model.evaluate(x_test,y_test))
 	    	rand_perf.append(mae_percentage(bootstrap_resample(y_train),y_train))
 	    	learning_curve_performance = DataFrame([rand_perf,train_perf,test_perf,learn_sets],index=["Random nMAE","Train nMAE","Test nMAE","Learning Sets"]).T
 	    elif target =="prime_cat":
-	    	train_perf.append(model.evaluate(x_train[smp],y_train[smp])[1])
-	    	test_perf.append(model.evaluate(x_test,y_test)[1])
-	    	train_loss.append(model.evaluate(x_train[smp],y_train[smp])[0])
-	    	test_loss.append(model.evaluate(x_test,y_test)[0])
+	    	train_score = model.evaluate(x_train[smp],y_train[smp])
+	    	test_score = model.evaluate(x_test,y_test)
+	    	train_perf.append(train_score[1])
+	    	test_perf.append(test_score[1])
+	    	train_loss.append(train_score[0])
+	    	test_loss.append(test_score[0])
 	    	rand_perf.append(accuracy_score([l.argmax() for l in y_train],[l.argmax() for l in bootstrap_resample(y_train)]))
 	    	learning_curve_performance = DataFrame([rand_perf,train_loss,train_perf,test_loss,test_perf,learn_sets],index=["Random Accuracy","Train CE","Train Accuracy","Test CE","Test Accuracy","Learning Sets"]).T
 	    print(learning_curve_performance)
@@ -174,12 +173,19 @@ def learning_curve(target,x_train,y_train,x_test,y_test,learn_sets,save_director
 	learning_curve_performance.insert(0,"time_stamp",timenow())
 	if target == "price":
 		filename = 'beautai_algorithm_reg_expanded_ver_%s.h5' % time_stamp
-		learning_curve_performance.insert(-1,"model_filename",filename)
 		model.save(save_directory+filename)
+		learning_curve_performance.insert(learning_curve_performance.shape[1],"Model Filename",filename)
+		learning_curve_performance.insert(learning_curve_performance.shape[1],"Comments",comments)
+		updateCSV(	data_to_update = learning_curve_performance,
+					filename = save_directory+"price_performance.csv")
 	elif target == "prime_cat":
 		filename = 'beautai_algorithm_reg_expanded_ver_%s.h5' % time_stamp
 		model.save(save_directory+filename)
-		learning_curve_performance.insert(-1,"model_filename",filename)
+		learning_curve_performance.insert(learning_curve_performance.shape[1],"Hot One Encoding",str(hot_one_keys.tolist()))
+		learning_curve_performance.insert(learning_curve_performance.shape[1],"Model Filename",filename)
+		learning_curve_performance.insert(learning_curve_performance.shape[1],"Comments",comments)
+		updateCSV(	data_to_update = learning_curve_performance,
+					filename = save_directory+"classification_performance.csv")
 	return (model,learning_curve_performance)
 
 def timenow(tz="America/Los_Angeles"):
