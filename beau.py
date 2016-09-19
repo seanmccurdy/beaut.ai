@@ -1,15 +1,17 @@
 
-import subprocess
+
 import os
+import sys
+import subprocess
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from pandas import DataFrame,Series
-from sqlalchemy import create_engine
-from sklearn.cross_validation import cross_val_score,KFold,train_test_split
-from sklearn.pipeline import Pipeline
 from beau_cred import *
 from beau_functions import *
+from pandas import DataFrame,Series
+from sqlalchemy import create_engine
+from sklearn.pipeline import Pipeline
+from sklearn.cross_validation import cross_val_score,KFold,train_test_split
 
 #activates tensorflow backend for convnets
 subprocess.call('KERAS_BACKEND=tensorflow python -c "from keras import backend; print (backend._BACKEND)"', shell=True)
@@ -20,6 +22,7 @@ img_rows = 121
 img_cols = 91
 channels = 3
 seed = 42
+
 
 ######################
 ### ML Preparation ###
