@@ -24,6 +24,10 @@ channels = 3
 image_shape = (channels,img_rows,img_cols)
 seed = 42
 target = sys.argv[1] ##alternatives are'prime_cat'(categorization)or'price' 
+comments = ""
+if len(sys.argv)>1:
+	comments = sys.argv[2]
+
 ### ^^^ performs regression ##takes from command line
 
 ######################
@@ -42,7 +46,7 @@ X, Y_prime, L = load_processed_data(	X_filename = "../processed_data/images_RGB_
 										target=target)
 
 if target == "prime_cat":
-	Y = np_utils.to_categorical(Y_prime[0],len(np.unique(Y)))
+	Y = np_utils.to_categorical(Y_prime[0],len(Y_prime[1]))
 elif target =="price":
 	Y = Y_prime
 
@@ -61,30 +65,21 @@ x_test, x_valid, y_test, y_valid = train_test_split(	x_test,
 x_train = x_train.astype("float32")
 x_test = x_test.astype("float32")
 x_valid = x_valid.astype("float32")
-x_train /=255; x_test/=255; x_valid=/255
+x_train /=255; x_test/=255; x_valid/=255
 print("xtrain shape:",x_train.shape,"ytrain shape:",y_train.shape);print("xtest shape:",x_test.shape,"ytest shape:",y_test.shape);print("xvalid shape:",x_valid.shape,"yvalid shape:",y_valid.shape);
 
 ### Perform learning curve, collect model, and store performance
 
 learn_sets = [100,250,500,750,1000,1500,2000,4000,y_train.shape[0]]
 
-trained_model, performance = learning_curve(x_train = x_train,
-											y_train = y_train,
-											x_test = x_test,
-											y_test = y_test,
-											learn_sets = learn_sets,
-											save_directory = "../model_data/",
-											target=target)
-if target == "prime_cat":
-	performance.insert(-1,"hot_one_encoding index",Y_prime[1])
-	updateCSV(	data_to_update = performance,
-				filename = "../model_data/classification_performance.csv")
-elif target == "price":
-	updateCSV(	data_to_update = performance,
-				filename = "../model_data/price_performance.csv")
+learning_curve(	x_train = x_train,
+				y_train = y_train,
+				x_test = x_test,
+				y_test = y_test,
+				learn_sets = learn_sets,
+				save_directory = "../model_data/",
+				target = target,
+				comments = comments,
+				hot_one_keys = Y_prime[1])
 
-
-
-
-	    
 
