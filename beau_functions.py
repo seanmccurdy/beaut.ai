@@ -23,6 +23,7 @@ from keras.utils import np_utils
 img_rows = 121
 img_cols = 91
 channels = 3
+image_shape = (channels,img_rows,img_cols)
 
 def convert_images_to_nparray(directory,img_rows,img_cols,channels=3):
 	"""returns numpy arrays of labels and images """
@@ -88,7 +89,8 @@ def load_processed_data(target,	X_filename,Y_filename,labels_filename,randomize=
 		L = L[(Y!='0') & (Y!='Non-Alc') & (Y!='Accessories and Non-Alcohol Items')]
 		X = X[(Y!='0') & (Y!='Non-Alc') & (Y!='Accessories and Non-Alcohol Items')]
 		Y = Y[(Y!='0') & (Y!='Non-Alc') & (Y!='Accessories and Non-Alcohol Items')]
-		Y = np_utils.to_categorical(Series(Y).factorize()[0],len(np.unique(Y)))
+		Y = Series(Y).factorize()[0]
+		# Y = np_utils.to_categorical(Series(Y).factorize()[0],len(np.unique(Y)))
 	###randomization
 	if randomize == True:
 		smp = np.random.randint(low=0,high=len(Y),size=len(Y)).tolist()
@@ -98,7 +100,7 @@ def load_processed_data(target,	X_filename,Y_filename,labels_filename,randomize=
 	return (X,Y,L)
 
 
-def reg_deep_net_model_1(image_shape,loss="mse",optimizer="adam"):	
+def reg_deep_net_model_1(image_shape=image_shape,loss="mean_absolute_percentage_error",optimizer="adam"):	
 	model = Sequential()
 	model.add(Convolution2D(8,3,3,input_shape=image_shape,border_mode="same"))
 	model.add(Activation('relu'))
@@ -110,7 +112,7 @@ def reg_deep_net_model_1(image_shape,loss="mse",optimizer="adam"):
 	model.compile(loss=loss, optimizer=optimizer)
 	return model
 
-def class_deep_net_model_1(image_shape,loss="categorical_crossentropy",optimizer="adadelta"):	
+def class_deep_net_model_1(image_shape=image_shape,loss="categorical_crossentropy",optimizer="adadelta"):	
 	model = Sequential()
 	model.add(Convolution2D(6,5,5,input_shape=(channels,img_rows,img_cols),border_mode="same"))
 	model.add(Activation('relu'))
@@ -134,10 +136,18 @@ def mae_percentage(y_pred,y_true):
     diff = abs((y_true - y_pred) / y_true)
     return 100 * diff.mean()
 
-def learning_curve(target,model,x_train,y_train,x_test,y_test,learn_sets,save_directory="../model_data"):
+def learning_curve(target,x_train,y_train,x_test,y_test,learn_sets,save_directory="../model_data"):
 	rand_perf = []
+	train_loss = []
 	train_perf = []
+	test_loss = []
 	test_perf = []
+
+	if target == "price":
+		model = reg_deep_net_model_1(image_shape=image_shape,loss="mean_absolute_percentage_error",optimizer="adam")
+	elif target == "prime_cat":
+		model = class_deep_net_model_1(image_shape=image_shape,loss="categorical_crossentropy",optimizer="adadelta")
+
 	for i in learn_sets:
 	    smp = np.random.randint(low=0,high=y_train.shape[0],size=i).tolist()
 	    model.fit(	x_train[smp],
@@ -146,20 +156,30 @@ def learning_curve(target,model,x_train,y_train,x_test,y_test,learn_sets,save_di
 	    			batch_size=100,
 	    			verbose=1,
 	    			validation_data = (x_test,y_test))
-	    train_perf.append(model.evaluate(x_train[smp],y_train[smp]))
-	    test_perf.append(model.evaluate(x_test,y_test))
+	    
 	    if target=="price":
+	    	train_perf.append(model.evaluate(x_train[smp],y_train[smp]))
+	    	test_perf.append(model.evaluate(x_test,y_test))
 	    	rand_perf.append(mae_percentage(bootstrap_resample(y_train),y_train))
-	    else:
-	    	rand_perf.append([0])
-	    learning_curve_performance = DataFrame([rand_perf,train_perf,test_perf,learn_sets],index=["random","train","test","random_samples"]).T
+	    	learning_curve_performance = DataFrame([rand_perf,train_perf,test_perf,learn_sets],index=["Random nMAE","Train nMAE","Test nMAE","Learning Sets"]).T
+	    elif target =="prime_cat":
+	    	train_perf.append(model.evaluate(x_train[smp],y_train[smp])[1])
+	    	test_perf.append(model.evaluate(x_test,y_test)[1])
+	    	train_loss.append(model.evaluate(x_train[smp],y_train[smp])[0])
+	    	test_loss.append(model.evaluate(x_test,y_test)[0])
+	    	rand_perf.append(accuracy_score([l.argmax() for l in y_train],[l.argmax() for l in bootstrap_resample(y_train)]))
+	    	learning_curve_performance = DataFrame([rand_perf,train_loss,train_perf,test_loss,test_perf,learn_sets],index=["Random Accuracy","Train CE","Train Accuracy","Test CE","Test Accuracy","Learning Sets"]).T
 	    print(learning_curve_performance)
 	time_stamp = timenow()
 	learning_curve_performance.insert(0,"time_stamp",timenow())
 	if target == "price":
-		model.save(save_directory+'beautai_algorithm_reg_expanded_ver_%s.h5' % time_stamp)
-	else:
-		model.save(save_directory+'beautai_algorithm_class_expanded_ver_%s.h5' % time_stamp)
+		filename = 'beautai_algorithm_reg_expanded_ver_%s.h5' % time_stamp
+		learning_curve_performance.insert(-1,"model_filename",filename)
+		model.save(save_directory+filename)
+	elif target == "prime_cat":
+		filename = 'beautai_algorithm_reg_expanded_ver_%s.h5' % time_stamp
+		model.save(save_directory+filename)
+		learning_curve_performance.insert(-1,"model_filename",filename)
 	return (model,learning_curve_performance)
 
 def timenow(tz="America/Los_Angeles"):
